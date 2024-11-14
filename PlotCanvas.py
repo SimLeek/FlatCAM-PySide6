@@ -6,14 +6,14 @@
 # MIT Licence                                              #
 ############################################################
 
-from PyQt4 import QtGui, QtCore
+from PySide6 import QtGui, QtCore, QtWidgets
 
 # Prevent conflict with Qt5 and above.
 from matplotlib import use as mpl_use
-mpl_use("Qt4Agg")
+mpl_use("QtAgg")
 
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import FlatCAMApp
 import logging
@@ -40,7 +40,7 @@ class CanvasCache(QtCore.QObject):
 
     # Signals:
     # A bitmap is ready to be displayed.
-    new_screen = QtCore.pyqtSignal()
+    new_screen = QtCore.Signal()
 
     def __init__(self, plotcanvas, app, dpi=50):
 
@@ -106,7 +106,7 @@ class PlotCanvas(QtCore.QObject):
     # Signals:
     # Request for new bitmap to display. The parameter
     # is a list with [xmin, xmax, ymin, ymax, zoom(optional)]
-    update_screen_request = QtCore.pyqtSignal(list)
+    update_screen_request = QtCore.Signal(list)
 
     def __init__(self, container, app):
         """
@@ -162,7 +162,8 @@ class PlotCanvas(QtCore.QObject):
         self.cache = CanvasCache(self, self.app)
         self.cache_thread = QtCore.QThread()
         self.cache.moveToThread(self.cache_thread)
-        super(PlotCanvas, self).connect(self.cache_thread, QtCore.SIGNAL("started()"), self.cache.run)
+        #super(PlotCanvas, self).connect(self.cache_thread, QtCore.SIGNAL("started()"), self.cache.run)
+        self.cache_thread.started.connect(self.cache.run)
         # self.connect()
         self.cache_thread.start()
         self.cache.new_screen.connect(self.on_new_screen)

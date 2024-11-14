@@ -53,7 +53,7 @@ import tclCommands.TclCommandWriteGCode
 __all__ = []
 
 for loader, name, is_pkg in pkgutil.walk_packages(__path__):
-    module = loader.find_module(name).load_module(name)
+    module = loader.find_spec(name).loader.load_module(name)
     __all__.append(name)
 
 

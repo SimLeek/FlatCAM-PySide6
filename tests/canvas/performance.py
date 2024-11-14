@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import io
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import cProfile
 import sys
@@ -42,10 +42,11 @@ def large_plot(data):
     canvas.draw()
     # canvas = FigureCanvasQTAgg(fig)
     # buf = canvas.tostring_rgb()
-    buf = fig.canvas.tostring_rgb()
+    buf = fig.canvas.buffer_rgba()
 
     ncols, nrows = fig.canvas.get_width_height()
-    img = np.fromstring(buf, dtype=np.uint8).reshape(nrows, ncols, 3)
+    img = np.frombuffer(buf, dtype=np.uint8).reshape(nrows, ncols, 4)
+    img = img[:, :, :3]
 
     return img
 

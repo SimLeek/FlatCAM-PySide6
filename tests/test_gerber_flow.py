@@ -1,6 +1,7 @@
 import sys
+import time
 import unittest
-from PyQt4 import QtGui
+from PySide6 import QtWidgets
 from FlatCAMApp import App, tclCommands
 from FlatCAMObj import FlatCAMGerber, FlatCAMGeometry, FlatCAMCNCjob
 from ObjectUI import GerberObjectUI, GeometryObjectUI
@@ -21,7 +22,7 @@ class GerberFlowTestCase(unittest.TestCase):
     filename = 'simple1.gbr'
 
     def setUp(self):
-        self.app = QtGui.QApplication(sys.argv)
+        self.app = QtWidgets.QApplication(sys.argv)
 
         # Create App, keep app defaults (do not load
         # user-defined defaults).
@@ -115,7 +116,9 @@ class GerberFlowTestCase(unittest.TestCase):
         #---------------------------------------------
         # Check that only 1 object has been created.
         #---------------------------------------------
+        time.sleep(0.1)
         names = self.fc.collection.get_names()
+        print(names)
         self.assertEqual(len(names), 2,
                          "Expected 2 objects, found %d" % len(names))
 

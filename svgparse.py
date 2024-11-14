@@ -105,10 +105,13 @@ def path2shapely(path, res=1.0):
             points.append((end.real, end.imag))
             continue
 
-        log.warning("I don't know what this is:", component)
+        log.warning(f"I don't know what this is: {component}")
         continue
 
-    if path.closed:
+    def is_path_closed(path):
+        return path[0].start == path[-1].end
+
+    if is_path_closed(path):
         return Polygon(points).buffer(0)
         # return LinearRing(points)
     else:

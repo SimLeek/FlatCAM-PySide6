@@ -7,7 +7,7 @@
 ############################################################
 
 from io import StringIO
-from PyQt4 import QtCore
+from PySide6 import QtCore
 from copy import copy
 from ObjectUI import *
 import FlatCAMApp
@@ -31,7 +31,7 @@ class FlatCAMObj(QtCore.QObject):
     # The app should set this value.
     app = None
     
-    option_changed = QtCore.pyqtSignal(QtCore.QObject, str)
+    option_changed = QtCore.Signal(QtCore.QObject, str)
 
     def __init__(self, name):
         """
@@ -541,7 +541,7 @@ class FlatCAMGerber(FlatCAMObj, Gerber):
             if invert:
                 if type(geom) is MultiPolygon:
                     pl = []
-                    for p in geom:
+                    for p in geom.geoms:
                         pl.append(Polygon(p.exterior.coords[::-1], p.interiors))
                     geom = MultiPolygon(pl)
                 elif type(geom) is Polygon:
@@ -645,19 +645,32 @@ class FlatCAMGerber(FlatCAMObj, Gerber):
         else:
             linespec = 'k-'
 
+        def handle_plot_poly(poly):
+            # TODO: Remove nonsensical todo items and commented out code
+            try:
+                patch = PolygonPatch(poly,
+                                     facecolor="#BBF268",
+                                     edgecolor="#006E20",
+                                     alpha=0.75,
+                                     zorder=2)
+                if patch is not None:
+                    self.axes.add_patch(patch)
+
+            except AssertionError as ae:
+                FlatCAMApp.App.log.warning("A geometry component was not a polygon:")
+                FlatCAMApp.App.log.warning(str(poly))
+                raise ae
+
         if self.options["solid"]:
             for poly in geometry:
-                # TODO: Too many things hardcoded.
-                try:
-                    patch = PolygonPatch(poly,
-                                         facecolor="#BBF268",
-                                         edgecolor="#006E20",
-                                         alpha=0.75,
-                                         zorder=2)
-                    self.axes.add_patch(patch)
-                except AssertionError:
-                    FlatCAMApp.App.log.warning("A geometry component was not a polygon:")
-                    FlatCAMApp.App.log.warning(str(poly))
+                if isinstance(poly, MultiPolygon):
+                    for poly2 in list(poly.geoms):
+                        handle_plot_poly(poly2)
+                else:
+                    handle_plot_poly(poly)
+
+
+
         else:
             for poly in geometry:
                 x, y = poly.exterior.xy
@@ -798,13 +811,13 @@ class FlatCAMExcellon(FlatCAMObj, Excellon):
                 if drill.get('tool') == tool:
                     drill_cnt += 1
 
-            id = QtGui.QTableWidgetItem(tool)
-            id.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
+            id = QtWidgets.QTableWidgetItem(tool)
+            id.setFlags(QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled)
             self.ui.tools_table.setItem(i, 0, id)  # Tool name/id
-            dia = QtGui.QTableWidgetItem(str(self.tools[tool]['C']))
-            dia.setFlags(QtCore.Qt.ItemIsEnabled)
-            drill_count = QtGui.QTableWidgetItem('%d' % drill_cnt)
-            drill_count.setFlags(QtCore.Qt.ItemIsEnabled)
+            dia = QtWidgets.QTableWidgetItem(str(self.tools[tool]['C']))
+            dia.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
+            drill_count = QtWidgets.QTableWidgetItem('%d' % drill_cnt)
+            drill_count.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
             self.ui.tools_table.setItem(i, 1, dia)  # Diameter
             self.ui.tools_table.setItem(i, 2, drill_count)  # Number of drills per tool
             i += 1
@@ -817,9 +830,9 @@ class FlatCAMExcellon(FlatCAMObj, Excellon):
         self.ui.tools_table.resizeColumnsToContents()
         self.ui.tools_table.resizeRowsToContents()
         horizontal_header = self.ui.tools_table.horizontalHeader()
-        horizontal_header.setResizeMode(0, QtGui.QHeaderView.ResizeToContents)
-        horizontal_header.setResizeMode(1, QtGui.QHeaderView.Stretch)
-        horizontal_header.setResizeMode(2, QtGui.QHeaderView.ResizeToContents)
+        horizontal_header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        horizontal_header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        horizontal_header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         # horizontal_header.setStretchLastSection(True)
         self.ui.tools_table.verticalHeader().hide()
         self.ui.tools_table.setSortingEnabled(True)
@@ -1160,7 +1173,9 @@ class FlatCAMCNCjob(FlatCAMObj, CNCjob):
 
             yield line
 
-        raise StopIteration
+        # crashes on purpose in python 3.7+
+        # raise StopIteration
+        return
 
     def export_gcode(self, filename, preamble='', postamble='', processor=''):
 

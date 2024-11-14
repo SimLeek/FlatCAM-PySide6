@@ -9,15 +9,16 @@
 from FlatCAMObj import *
 import inspect  # TODO: Remove
 import FlatCAMApp
-from PyQt4 import Qt, QtGui, QtCore
+from PySide6 import QtGui, QtCore, QtWidgets
+from PySide6.QtCore import Qt
 
 
-class KeySensitiveListView(QtGui.QListView):
+class KeySensitiveListView(QtWidgets.QListView):
     """
     QtGui.QListView extended to emit a signal on key press.
     """
 
-    keyPressed = QtCore.pyqtSignal(int)
+    keyPressed = QtCore.Signal(int)
 
     def keyPressEvent(self, event):
         super(KeySensitiveListView, self).keyPressEvent(event)
@@ -66,7 +67,7 @@ class ObjectCollection():
         ### View
         #self.view = QtGui.QListView()
         self.view = KeySensitiveListView()
-        self.view.setSelectionMode(Qt.QAbstractItemView.ExtendedSelection)
+        self.view.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.model = QtGui.QStandardItemModel(self.view)
         self.view.setModel(self.model)
         self.model.itemChanged.connect(self.on_item_changed)
@@ -89,13 +90,13 @@ class ObjectCollection():
     def on_key(self, key):
 
         # Delete
-        if key == QtCore.Qt.Key_Delete:
+        if key == QtCore.Qt.Key.Key_Delete:
             # Delete via the application to
             # ensure cleanup of the GUI
             self.get_active().app.on_delete()
             return
 
-        if key == QtCore.Qt.Key_Space:
+        if key == QtCore.Qt.Key.Key_Space:
             self.get_active().ui.plot_cb.toggle()
             return
 
@@ -113,13 +114,13 @@ class ObjectCollection():
     def columnCount(self, *args, **kwargs):
         return 1
 
-    def data(self, index, role=Qt.Qt.DisplayRole):
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not 0 <= index.row() < self.rowCount():
             return QtCore.QVariant()
         row = index.row()
-        if role == Qt.Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             return self.object_list[row].options["name"]
-        if role == Qt.Qt.DecorationRole:
+        if role == Qt.ItemDataRole.DecorationRole:
             return self.icons[self.object_list[row].kind]
         # if role == Qt.Qt.CheckStateRole:
         #     if row in self.checked_indexes:
@@ -169,9 +170,9 @@ class ObjectCollection():
         # The item is checkable, to add the checkbox.
         item.setCheckable(True)
         if obj.options["plot"] is True:
-            item.setCheckState(2)   #Qt.Checked)
+            item.setCheckState(Qt.CheckState.Checked)
         else:
-            item.setCheckState(0)   #Qt.Unchecked)
+            item.setCheckState(Qt.CheckState.Unchecked)
 
         self.model.appendRow(item)
 
@@ -184,12 +185,12 @@ class ObjectCollection():
         if key == "plot":
             self.model.blockSignals(True)
             name = obj.options["name"]
-            state = 0 #Qt.Unchecked
+            state = Qt.CheckState.Unchecked #Qt.Unchecked
             for index in range(self.model.rowCount()):
                 item = self.model.item(index)
                 if self.object_list[item.row()].options["name"] == name:
                     if obj.options["plot"] == True:
-                        state = 2 #Qt.Checked
+                        state = Qt.CheckState.Checked #Qt.Checked
 
                     item.setCheckState(state)
                     obj.ui.plot_cb.set_value(state)
@@ -218,10 +219,10 @@ class ObjectCollection():
 
         # TODO: Move the operation out of here.
 
-        xmin = Inf
-        ymin = Inf
-        xmax = -Inf
-        ymax = -Inf
+        xmin = inf
+        ymin = inf
+        xmax = -inf
+        ymax = -inf
 
         for obj in self.object_list:
             try:
@@ -293,7 +294,7 @@ class ObjectCollection():
         :return: None
         """
         iobj = self.model.createIndex(self.get_names().index(name), 0)  # Column 0
-        self.view.selectionModel().select(iobj, QtGui.QItemSelectionModel.Select)
+        self.view.selectionModel().select(iobj, QtCore.QItemSelectionModel.SelectionFlag.Select)
 
     def set_inactive(self, name):
         """
@@ -304,7 +305,7 @@ class ObjectCollection():
         :return: None
         """
         iobj = self.model.createIndex(self.get_names().index(name), 0)  # Column 0
-        self.view.selectionModel().select(iobj, QtGui.QItemSelectionModel.Deselect)
+        self.view.selectionModel().select(iobj, QtCore.QItemSelectionModel.SelectionFlag.Deselect)
 
     def set_all_inactive(self):
         """
@@ -329,7 +330,7 @@ class ObjectCollection():
 
     def on_item_changed(self, item):
         FlatCAMApp.App.log.debug("on_item_changed(): " + str(item.row()) + " " + self.object_list[item.row()].options["name"])
-        if item.checkState() == QtCore.Qt.Checked:
+        if item.checkState() == QtCore.Qt.CheckState.Checked:
            self.object_list[item.row()].options["plot"] = True #(item.checkState() == QtCore.Qt.Checked)
         else:
            self.object_list[item.row()].options["plot"] = False #(item.checkState() == QtCore.Qt.Checked)

@@ -10,7 +10,7 @@
 #import traceback
 
 from io import StringIO
-from numpy import arctan2, Inf, array, sqrt, pi, ceil, sin, cos, dot, float32, \
+from numpy import arctan2, inf, array, sqrt, pi, ceil, sin, cos, dot, float32, \
     transpose
 from numpy.linalg import solve, norm
 from matplotlib.figure import Figure
@@ -28,8 +28,15 @@ import matplotlib
 from rtree import index as rtindex
 
 # See: http://toblerity.org/shapely/manual.html
-from shapely.geometry import Polygon, LineString, Point, LinearRing
-from shapely.geometry import MultiPoint, MultiPolygon
+#from shapely.geometry import Polygon, LineString, Point, LinearRing
+#from shapely.geometry import MultiPoint, MultiPolygon
+from shapely.geometry.multipolygon import MultiPolygon
+from shapely.geometry.multipoint import MultiPoint
+from shapely.geometry.polygon import Polygon
+from shapely.geometry.linestring import LineString
+from shapely.geometry.point import Point
+from shapely import LinearRing
+
 from shapely.geometry import box as shply_box
 from shapely.ops import cascaded_union, unary_union
 import shapely.affinity as affinity
@@ -789,7 +796,7 @@ class Geometry(object):
                 # then reverse coordinates.
                 # but prefer the first one if last == first
                 if pt != candidate.coords[0] and pt == candidate.coords[-1]:
-                    candidate.coords = list(candidate.coords)[::-1]
+                    candidate = LineString(list(candidate.coords)[::-1])
 
                 # Straight line from current_pt to pt.
                 # Is the toolpath inside the geometry?
@@ -800,7 +807,7 @@ class Geometry(object):
                     #log.debug("Walk to path #%d is inside. Joining." % path_count)
 
                     # Completely inside. Append...
-                    geo.coords = list(geo.coords) + list(candidate.coords)
+                    geo = LineString(list(geo.coords) + list(candidate.coords))
                     # try:
                     #     last = optimized_paths[-1]
                     #     last.coords = list(last.coords) + list(geo.coords)
@@ -872,22 +879,26 @@ class Geometry(object):
                 if type(left) == LineString:
                     if left.coords[0] == geo.coords[0]:
                         storage.remove(left)
-                        geo.coords = list(geo.coords)[::-1] + list(left.coords)
+                        geo = LineString(list(geo.coords)[::-1] + list(left.coords))
+                        #geo.coords = list(geo.coords)[::-1] + list(left.coords)
                         continue
 
                     if left.coords[-1] == geo.coords[0]:
                         storage.remove(left)
-                        geo.coords = list(left.coords) + list(geo.coords)
+                        geo = LineString(list(left.coords) + list(geo.coords))
+                        #geo.coords = list(left.coords) + list(geo.coords)
                         continue
 
                     if left.coords[0] == geo.coords[-1]:
                         storage.remove(left)
-                        geo.coords = list(geo.coords) + list(left.coords)
+                        geo = LineString(list(geo.coords) + list(left.coords))
+                        #geo.coords = list(geo.coords) + list(left.coords)
                         continue
 
                     if left.coords[-1] == geo.coords[-1]:
                         storage.remove(left)
-                        geo.coords = list(geo.coords) + list(left.coords)[::-1]
+                        geo = LineString(list(geo.coords) + list(left.coords)[::-1])
+                        #geo.coords = list(geo.coords) + list(left.coords)[::-1]
                         continue
 
                 _, right = storage.nearest(geo.coords[-1])
@@ -898,22 +909,26 @@ class Geometry(object):
                 if type(right) == LineString:
                     if right.coords[0] == geo.coords[-1]:
                         storage.remove(right)
-                        geo.coords = list(geo.coords) + list(right.coords)
+                        geo = LineString(list(geo.coords) + list(right.coords))
+                        #geo.coords = list(geo.coords) + list(right.coords)
                         continue
 
                     if right.coords[-1] == geo.coords[-1]:
                         storage.remove(right)
-                        geo.coords = list(geo.coords) + list(right.coords)[::-1]
+                        geo = LineString(list(geo.coords) + list(right.coords)[::-1])
+                        #geo.coords = list(geo.coords) + list(right.coords)[::-1]
                         continue
 
                     if right.coords[0] == geo.coords[0]:
                         storage.remove(right)
-                        geo.coords = list(geo.coords)[::-1] + list(right.coords)
+                        geo = LineString(list(geo.coords)[::-1] + list(right.coords))
+                        #geo.coords = list(geo.coords)[::-1] + list(right.coords)
                         continue
 
                     if right.coords[-1] == geo.coords[0]:
                         storage.remove(right)
-                        geo.coords = list(left.coords) + list(geo.coords)
+                        geo = LineString(list(left.coords) + list(geo.coords))
+                        #geo.coords = list(left.coords) + list(geo.coords)
                         continue
 
                 # right is either a LinearRing or it does not connect
@@ -1606,8 +1621,7 @@ class Gerber (Geometry):
         # Operation code (D0x) missing is deprecated... oh well I will support it.
         # Optional start with G02 or G03, optional end with D01 or D02 with
         # optional coordinates but at least one in any order.
-        self.circ_re = re.compile(r'^(?:G0?([23]))?(?=.*X([\+-]?\d+))?(?=.*Y([\+-]?\d+))' +
-                                  '?(?=.*I([\+-]?\d+))?(?=.*J([\+-]?\d+))?[XYIJ][^D]*(?:D0([12]))?\*$')
+        self.circ_re = re.compile(r'^(?:G0?([23]))?(?=.*X([+-]?\d+))?(?=.*Y([+-]?\d+))?(?=.*I([+-]?\d+))?(?=.*J([+-]?\d+))?[XYIJ][^D]*(?:D0([12]))?\*$')
 
         # G01/2/3 Occurring without coordinates
         self.interp_re = re.compile(r'^(?:G0?([123]))\*')
@@ -1820,7 +1834,6 @@ class Gerber (Geometry):
         :type follow: bool
         :return: None
         """
-
         with open(filename, 'r') as gfile:
 
             def line_generator():
@@ -2300,7 +2313,7 @@ class Gerber (Geometry):
                     # so it can be processed by FlatCAM.
                     # But first test to see if the aperture type is "aperture macro". In that case
                     # we should not test for "size" key as it does not exist in this case.
-                    if self.apertures[current_aperture]["type"] is not "AM":
+                    if self.apertures[current_aperture]["type"] != "AM":
                         if self.apertures[current_aperture]["size"] == 0:
                             self.apertures[current_aperture]["size"] = 0.0000001
                     log.debug(self.apertures[current_aperture])
@@ -2346,9 +2359,9 @@ class Gerber (Geometry):
                     # TODO: Remove when bug fixed
                     if len(poly_buffer) > 0:
                         if current_polarity == 'D':
-                            self.solid_geometry = self.solid_geometry.union(cascaded_union(poly_buffer))
+                            self.solid_geometry = self.solid_geometry.union(unary_union(poly_buffer))
                         else:
-                            self.solid_geometry = self.solid_geometry.difference(cascaded_union(poly_buffer))
+                            self.solid_geometry = self.solid_geometry.difference(unary_union(poly_buffer))
                         poly_buffer = []
 
                     current_polarity = match.group(1)
@@ -2421,17 +2434,18 @@ class Gerber (Geometry):
                 return
 
             log.warn("Joining %d polygons." % len(poly_buffer))
-            if self.use_buffer_for_union:
-                log.debug("Union by buffer...")
-                new_poly = MultiPolygon(poly_buffer)
-                new_poly = new_poly.buffer(0.00000001)
-                new_poly = new_poly.buffer(-0.00000001)
-                log.warn("Union(buffer) done.")
-            else:
-                log.debug("Union by union()...")
-                new_poly = cascaded_union(poly_buffer)
-                new_poly = new_poly.buffer(0)
-                log.warn("Union done.")
+            # use_buffer_for_union just crashes
+            #if self.use_buffer_for_union:
+            #    log.debug("Union by buffer...")
+            #    new_poly = MultiPolygon(poly_buffer)
+            #    new_poly = new_poly.buffer(0.00000001)
+            #    new_poly = new_poly.buffer(-0.00000001)
+            #    log.warn("Union(buffer) done.")
+            #else:
+            log.debug("Union by union()...")
+            new_poly = unary_union(poly_buffer)
+            new_poly = new_poly.buffer(0)
+            log.warn("Union done.")
             if current_polarity == 'D':
                 self.solid_geometry = self.solid_geometry.union(new_poly)
             else:
@@ -3775,10 +3789,10 @@ class CNCjob(Geometry):
         return svg_elem
 
 # def get_bounds(geometry_set):
-#     xmin = Inf
-#     ymin = Inf
-#     xmax = -Inf
-#     ymax = -Inf
+#     xmin = inf
+#     ymin = inf
+#     xmax = -inf
+#     ymax = -inf
 #
 #     #print "Getting bounds of:", str(geometry_set)
 #     for gs in geometry_set:
@@ -3794,10 +3808,10 @@ class CNCjob(Geometry):
 #     return [xmin, ymin, xmax, ymax]
 
 def get_bounds(geometry_list):
-    xmin = Inf
-    ymin = Inf
-    xmax = -Inf
-    ymax = -Inf
+    xmin = inf
+    ymin = inf
+    xmax = -inf
+    ymax = -inf
 
     #print "Getting bounds of:", str(geometry_set)
     for gs in geometry_list:
