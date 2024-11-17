@@ -4283,13 +4283,15 @@ class App(QtCore.QObject):
         :return: None
         """
 
-        self.log.debug("version_check()")
-        full_url = App.version_url + \
-            "?s=" + str(self.defaults['serial']) + \
-            "&v=" + str(self.version) + \
-            "&os=" + str(self.os) + \
-            "&" + urllib.parse.urlencode(self.defaults["stats"])
-        App.log.debug("Checking for updates @ %s" % full_url)
+        #self.log.debug("version_check()")
+        #full_url = App.version_url + \
+        #    "?s=" + str(self.defaults['serial']) + \
+        #    "&v=" + str(self.version) + \
+        #    "&os=" + str(self.os) + \
+        #    "&" + urllib.parse.urlencode(self.defaults["stats"])
+        #App.log.debug("Checking for updates @ %s" % full_url)
+        App.log.debug("Checking for updates currently disabled")
+        return
 
         ### Get the data
         try:

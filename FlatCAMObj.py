@@ -653,6 +653,7 @@ class FlatCAMGerber(FlatCAMObj, Gerber):
                                      edgecolor="#006E20",
                                      alpha=0.75,
                                      zorder=2)
+                # TODO: why is patch/poly ever None in the first place? Investigate in case of intermittent error.
                 if patch is not None:
                     self.axes.add_patch(patch)
 
@@ -757,7 +758,7 @@ class FlatCAMExcellon(FlatCAMObj, Excellon):
                 #    exc.to_form()
                 #    exc.read_form()
                 for option in exc.options:
-                    if option is not 'name':
+                    if option != 'name':
                         try:
                             exc_final.options[option] = exc.options[option]
                         except:
@@ -1130,10 +1131,10 @@ class FlatCAMCNCjob(FlatCAMObj, CNCjob):
         self.read_form()
 
         try:
-            filename = str(QtGui.QFileDialog.getSaveFileName(caption="Export G-Code ...",
-                                                         directory=self.app.defaults["last_folder"]))
+            filename = str(QtWidgets.QFileDialog.getSaveFileName(caption="Export G-Code ...",
+                                                         dir=self.app.defaults["last_folder"])[0])
         except TypeError:
-            filename = str(QtGui.QFileDialog.getSaveFileName(caption="Export G-Code ..."))
+            filename = str(QtWidgets.QFileDialog.getSaveFileName(caption="Export G-Code ...")[0])
 
         preamble = str(self.ui.prepend_text.get_value())
         postamble = str(self.ui.append_text.get_value())
@@ -1694,6 +1695,11 @@ class FlatCAMGeometry(FlatCAMObj, Geometry):
             if type(element) == LineString or type(element) == LinearRing:
                 x, y = element.coords.xy
                 self.axes.plot(x, y, 'r-')
+                return
+
+            if type(element) == MultiPolygon:
+                for sub_el in list(element.geoms):
+                    self.plot_element(sub_el)
                 return
 
             FlatCAMApp.App.log.warning("Did not plot:" + str(type(element)))

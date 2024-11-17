@@ -328,14 +328,25 @@ class Geometry(object):
             self.flat_geometry = []
 
         ## If iterable, expand recursively.
-        try:
-            for geo in geometry:
+        was_iterable = False
+        if hasattr(geometry, 'geoms'):
+            for geo in list(geometry.geoms):
                 self.flatten(geometry=geo,
                              reset=False,
                              pathonly=pathonly)
+            was_iterable = True
+        else:
+            try:
+                for geo in geometry:
+                    self.flatten(geometry=geo,
+                                 reset=False,
+                                 pathonly=pathonly)
+                was_iterable = True
+            except TypeError:
+                pass
 
         ## Not iterable, do the actual indexing and add.
-        except TypeError:
+        if not was_iterable:
             if pathonly and type(geometry) == Polygon:
                 self.flat_geometry.append(geometry.exterior)
                 self.flatten(geometry=geometry.interiors,
@@ -522,13 +533,13 @@ class Geometry(object):
 
         # current can be a MultiPolygon
         try:
-            for p in current:
+            for p in list(current.geoms):
                 geoms.insert(p.exterior)
                 for i in p.interiors:
                     geoms.insert(i)
 
         # Not a Multipolygon. Must be a Polygon
-        except TypeError:
+        except AttributeError:
             geoms.insert(current.exterior)
             for i in current.interiors:
                 geoms.insert(i)
@@ -541,13 +552,13 @@ class Geometry(object):
 
                 # current can be a MultiPolygon
                 try:
-                    for p in current:
+                    for p in list(current.geoms):
                         geoms.insert(p.exterior)
                         for i in p.interiors:
                             geoms.insert(i)
 
                 # Not a Multipolygon. Must be a Polygon
-                except TypeError:
+                except AttributeError:
                     geoms.insert(current.exterior)
                     for i in current.interiors:
                         geoms.insert(i)
@@ -789,6 +800,9 @@ class Geometry(object):
                 #log.debug("Path %d" % path_count)
 
                 pt, candidate = storage.nearest(current_pt)
+                if pt is None or candidate is None:  # new exit method since stopiteration is different
+                    optimized_paths.insert(geo)
+                    break
                 storage.remove(candidate)
                 candidate = LineString(candidate)
 
@@ -3233,6 +3247,11 @@ class CNCjob(Geometry):
         def get_pts(o):
             return [o.coords[0], o.coords[-1]]
 
+        def valid_path(o):
+            if hasattr(o, "coords") and len(o.coords) > 0:
+                return True
+            return False
+
         # Create the indexed storage.
         storage = FlatCAMRTreeStorage()
         storage.get_points = get_pts
@@ -3240,7 +3259,11 @@ class CNCjob(Geometry):
         # Store the geometry
         log.debug("Indexing geometry before generating G-Code...")
         for shape in flat_geometry:
-            if shape is not None:  # TODO: This shouldn't have happened.
+            if hasattr(shape, "__getitem__") and hasattr(shape, "__len__"):
+                for sh in shape:
+                    if sh is not None and valid_path(sh):  # TODO: This shouldn't have happened.
+                        storage.insert(sh)
+            elif shape is not None and valid_path(shape):  # TODO: This shouldn't have happened.
                 storage.insert(shape)
 
         if tooldia is not None:
@@ -3357,7 +3380,11 @@ class CNCjob(Geometry):
                 current_pt = geo.coords[-1]
 
                 # Next
-                pt, geo = storage.nearest(current_pt)
+                pt2, geo2 = storage.nearest(current_pt)
+                if pt2 is None:  # skip empty
+                    break  # nothing found in storage
+                else:
+                    pt, geo = pt2, geo2
 
         except StopIteration:  # Nothing found in storage.
             pass
@@ -4279,7 +4306,7 @@ class FlatCAMRTree(object):
         # object in obj2points.
         self.points2obj = []
 
-        self.get_points = lambda go: go.coords
+        self.get_points = lambda go: list(go.coords)
 
     def grow_obj2points(self, idx):
         """
@@ -4319,7 +4346,10 @@ class FlatCAMRTree(object):
         :param pt:
         :return:
         """
-        return next(self.rti.nearest(pt, objects=True))
+        try:
+            return next(self.rti.nearest(pt, objects=True))
+        except StopIteration:
+            return
 
 
 class FlatCAMRTreeStorage(FlatCAMRTree):
@@ -4377,7 +4407,10 @@ class FlatCAMRTreeStorage(FlatCAMRTree):
         :rtype: tuple
         """
         tidx = super(FlatCAMRTreeStorage, self).nearest(pt)
-        return (tidx.bbox[0], tidx.bbox[1]), self.objects[tidx.object]
+        if tidx is None:
+            return None, None
+        else:
+            return (tidx.bbox[0], tidx.bbox[1]), self.objects[tidx.object]
 
 
 # class myO:
